@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nezami Lab Research Map</title>
+<meta name="description" content="Interactive map of the Nezami Lab's research areas, current projects and publications.">
+<style>
+  :root{color-scheme:light;
+    --bg:#f6f7f9; --card:#ffffff; --ink:#18202c; --ink-2:#4a5566; --ink-3:#6b7585;
+    --line:#e3e6eb; --focus:#111827; --warn-bg:#fff7e6; --warn-line:#f0c36d; --warn-ink:#7a4b00;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:#1d4f8a}
+  button{font:inherit;color:inherit}
+  .skip{position:absolute;left:-999px;top:8px;background:#fff;padding:8px 12px;border-radius:8px;z-index:10}
+  .skip:focus{left:8px}
+
+  header.top{max-width:1320px;margin:0 auto;padding:28px 24px 8px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+  .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 4px}
+  h1{font-size:28px;line-height:1.15;margin:0;font-weight:680;letter-spacing:-.01em}
+  .sub{margin:6px 0 0;color:var(--ink-2);max-width:62ch}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:#c5cbd4}
+  .btn:focus-visible,.chip:focus-visible,.row:focus-visible,.crumb:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  main{max-width:1320px;margin:0 auto;padding:12px 24px 24px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.9fr);gap:20px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
+  .chart-card{padding:12px 12px 16px;position:relative}
+  .filters{display:flex;flex-wrap:wrap;gap:6px;padding:4px 6px 8px;align-items:center}
+  .filters .lbl{font-size:12px;color:var(--ink-3);margin-right:4px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px 4px 6px;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .chip[aria-pressed="false"]{opacity:.5;text-decoration:line-through}
+  .chip.rv[aria-pressed="true"]{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+  .chip.rv[aria-pressed="false"]{text-decoration:none;opacity:1}
+  .sw{width:16px;height:12px;border-radius:3px;display:inline-block;flex:none}
+
+  #chart{width:100%;height:auto;display:block;max-height:min(82vh,820px);margin:0 auto;touch-action:manipulation}
+  #chart .seg{cursor:pointer;transition:opacity .18s}
+  #chart .seg path.shape{stroke:#fff;stroke-width:1.4;transition:stroke .15s}
+  #chart .seg:hover path.shape{filter:brightness(1.06)}
+  #chart .seg:focus{outline:none}
+  #chart .seg:focus-visible path.shape,#chart .seg.is-selected path.shape{stroke:var(--focus);stroke-width:2.6}
+  #chart .dim{opacity:.16}
+  #chart .filtered{opacity:.08;pointer-events:none}
+  #chart text{pointer-events:none;user-select:none}
+  .lab-area{font-size:12.5px;font-weight:650;fill:#fff;letter-spacing:.01em}
+  .lab-sub{font-size:10.6px;font-weight:560;fill:#1b2330}
+  .center-t1{font-size:19px;font-weight:720;fill:var(--ink)}
+  .center-t2{font-size:10.8px;fill:var(--ink-2)}
+  .center-hint{font-size:9.6px;fill:var(--ink-3)}
+  #center{cursor:pointer}
+  #center:focus-visible circle{stroke:var(--focus);stroke-width:2.5}
+
+  .tip{position:absolute;pointer-events:none;background:#111827;color:#fff;font-size:12.5px;line-height:1.35;padding:7px 10px;border-radius:8px;max-width:280px;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;z-index:5}
+  .tip.on{opacity:1;transform:none}
+  .tip .k{display:block;font-size:11px;opacity:.75;margin-top:2px}
+
+  aside.panel{padding:20px 22px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+  .crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12.5px;color:var(--ink-3);margin-bottom:10px}
+  .crumb{background:none;border:0;padding:2px 4px;border-radius:6px;cursor:pointer;color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
+  .panel h2{font-size:20px;line-height:1.25;margin:0 0 8px;font-weight:680}
+  .panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:18px 0 8px;font-weight:650}
+  .panel p{margin:0 0 10px;color:var(--ink-2)}
+  .bar{height:5px;border-radius:3px;margin:0 0 14px;width:56px}
+  .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin:12px 0}
+  .meta dt{color:var(--ink-3)}
+  .meta dd{margin:0}
+  .note{font-size:12.5px;color:var(--ink-3)}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px 2px 5px;border:1px solid var(--line);background:#fff;white-space:nowrap}
+  .rows{display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer}
+  .row:hover{border-color:#c5cbd4;background:#fbfbfc}
+  .row .t{flex:1;min-width:0}
+  .row .t b{display:block;font-weight:600;font-size:14px;line-height:1.3}
+  .row .t span{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  .row .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+  .flag{color:var(--warn-ink);font-size:11.5px;font-weight:600}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+  .stat{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .stat b{display:block;font-size:20px;line-height:1.1}
+  .stat span{font-size:12px;color:var(--ink-3)}
+
+  section.below{max-width:1320px;margin:0 auto;padding:0 24px 40px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  section.below .card{padding:18px 22px}
+  section.below h2{font-size:16px;margin:0 0 10px}
+  .legend-rings{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+  .legend-rings ol{margin:0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+  .legend-status{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13.5px}
+  .legend-status div{display:flex;gap:8px;align-items:center}
+  .sources{font-size:13.5px;margin:0;padding-left:18px}
+  .sources li{margin:2px 0}
+  .pi-wrap{max-width:1320px;margin:0 auto;padding:0 24px 20px}
+  .pi{padding:20px 22px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);gap:8px 28px}
+  .pi h2{font-size:20px;margin:0 0 2px;grid-column:1/-1}
+  .pi .aka{grid-column:1/-1;margin:0 0 6px;color:var(--ink-3);font-size:13px}
+  .pi h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:10px 0 6px}
+  .pi ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+  .pi li{margin:3px 0}
+  .pi .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .pi .tag{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--ink-2)}
+  .pi .links{display:flex;flex-direction:column;gap:4px;font-size:14px}
+  footer{max-width:1320px;margin:0 auto;padding:0 24px 32px;font-size:12px;color:var(--ink-3)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  @media (max-width: 980px){
+    main{grid-template-columns:1fr}
+    aside.panel{position:static;max-height:none}
+    section.below{grid-template-columns:1fr}
+    .pi{grid-template-columns:1fr}
+  }
+  @media (max-width: 560px){.pi-wrap{padding:0 10px 14px}.stats{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width: 560px){
+    header.top{padding:18px 14px 4px}
+    h1{font-size:22px}
+    main{padding:8px 10px 16px;gap:12px}
+    section.below{padding:0 10px 24px}
+    aside.panel{padding:16px}
+    .chart-card{padding:8px 2px 12px}
+    .legend-status{grid-template-columns:1fr}
+    .lab-area{font-size:13.5px}
+    .lab-sub{font-size:11.5px}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#panel">Skip to details panel</a>
+<header class="top">
+  <div>
+    <p class="eyebrow">Division of Cardiac Surgery · Brigham and Women's Hospital · Harvard Medical School</p>
+    <h1>Nezami Lab Research Map</h1>
+    <p class="sub" id="vision"></p>
+  </div>
+  <div class="toolbar">
+    <button class="btn primary" id="resetBtn" type="button" title="Show the whole map (Esc)">↺ Explore all</button>
+  </div>
+</header>
+
+<main>
+  <div class="card chart-card">
+    <div class="filters" role="group" aria-label="Filter by status" id="filters"></div>
+    <svg id="chart" viewBox="-342 -342 684 684" role="group" aria-label="Research map. Use Tab to move between segments, arrow keys to move around and between rings, Enter to select, Escape to reset."></svg>
+    <div class="tip" id="tip" role="presentation"></div>
+    <p class="note" style="margin:4px 8px 0">Tip: tap or click a segment to open it. With a keyboard, use ←/→ to move within a ring, ↑ to go outward, ↓ to go inward, Enter to open and Esc to reset.</p>
+  </div>
+  <aside class="card panel" id="panel" aria-live="polite" tabindex="-1"></aside>
+</main>
+
+<section class="pi-wrap"><div class="card pi" id="pi" aria-labelledby="piTitle"></div></section>
+<section class="below">
+  <div class="card">
+    <h2>How to read the map</h2>
+    <div class="legend-rings">
+      <svg width="86" height="86" viewBox="-43 -43 86 86" aria-hidden="true">
+        <circle r="41" fill="#e9ecf1"/><circle r="31" fill="#cfd5de"/><circle r="21" fill="#8b96a8"/><circle r="12" fill="#fff" stroke="#cfd5de"/>
+      </svg>
+      <ol>
+        <li><b>Center</b>: the lab's unifying vision</li>
+        <li><b>Inner ring</b>: five research areas</li>
+        <li><b>Middle ring</b>: subtopics and methods</li>
+        <li><b>Outer ring</b>: projects, abstracts and publications</li>
+      </ol>
+    </div>
+    <h2 style="margin-top:14px">Outer-ring status</h2>
+    <div class="legend-status" id="legendStatus"></div>
+    <p class="note" style="margin-top:12px">HSRD 2027 items are current projects with abstracts submitted to the HMS Department of Surgery Research Day. Only general information is shown until the work is public.</p>
+  </div>
+  <div class="card">
+    <h2>Sources &amp; verification</h2>
+    <ul class="sources" id="sourceList"></ul>
+    <p class="note" style="margin-top:10px" id="reviewSummary"></p>
+    <p class="note"><a href="VERIFICATION.md">Verification notes</a> · <a href="data/research-map.json">Data (JSON)</a> · <a href="README.md">README</a></p>
+  </div>
+</section>
+<footer id="footer"></footer>
+
+<script type="application/json" id="inline-data">{"meta": {"title": "Nezami Lab Research Map", "lab": "Nezami Lab", "affiliation": "Division of Cardiac Surgery, Brigham and Women's Hospital / Harvard Medical School", "vision": "Where computational tools meet translational medicine: mechanics, bioinformatics, engineering and AI, combined with in silico, in vitro and in vivo work, to understand valvular and vascular disease, improve devices and life-support systems, and support decisions in cardiac surgery.", "visionSource": "Paraphrased from the lab overview on Harvard Catalyst and the lab Research page.", "lastReviewed": "2026-11-25", "disclaimer": "Independent research map prepared for the lab. Not an official BWH or Harvard publication. HSRD 2027 projects are shown with general information only.", "sources": [{"label": "Nezami Lab website", "url": "https://nezamilab.bwh.harvard.edu/"}, {"label": "Lab Research page", "url": "https://nezamilab.bwh.harvard.edu/research/"}, {"label": "Lab Atherosclerosis page", "url": "https://nezamilab.bwh.harvard.edu/atherosclerosis/"}, {"label": "Lab Cardiac Surgery page", "url": "https://nezamilab.bwh.harvard.edu/cardiac-surgery/"}, {"label": "Lab Emergency Medicine page", "url": "https://nezamilab.bwh.harvard.edu/emergency-medicine/"}, {"label": "Lab Publications page", "url": "https://nezamilab.bwh.harvard.edu/publications/"}, {"label": "Farhad R. Nezami, Google Scholar", "url": "https://scholar.google.com/citations?user=n-1I8IIAAAAJ&hl=en"}, {"label": "HSRD 2027 abstract submissions (internal; general information only)", "url": ""}, {"label": "Harvard Catalyst profile (Farhad Nezami, PhD)", "url": "https://connects.catalyst.harvard.edu/Profiles/display/Person/200912"}, {"label": "Edelman Lab (MIT IMES) member page", "url": "https://edelmanlab.mit.edu/current-members/farhad-r-nezami"}, {"label": "MIT personal site: biography", "url": "https://sites.mit.edu/farhad/?p=16"}, {"label": "Brain Aneurysm Foundation grant page", "url": "https://www.bafound.org/research/research-grant-awards/farhad-r-nezami-phd/"}, {"label": "University of Zurich Interface Group: academic guest profile", "url": "https://interfacegroup.ch/member/farhad"}], "pi": {"name": "Farhad R. Nezami, PhD", "aka": "Farhad Rikhtegar Nezami", "roles": ["Assistant Professor of Surgery, Harvard Medical School", "Lead Investigator, Division of Cardiac Surgery, Brigham and Women's Hospital", "Affiliated faculty, Harvard-MIT Biomedical Engineering Center (MIT IMES), where he leads the Bioinformatics and Computational Cardiology group"], "education": [{"degree": "PhD, Mechanical Engineering", "place": "ETH Zurich", "year": "2013", "note": "Supervised by Prof. Dimos Poulikakos and Prof. Vartan Kurtcuoglu. Combined ex vivo and in silico study of blood flow and drug delivery in stented coronary arteries, with University Hospital Zurich and industry partners."}, {"degree": "Postdoctoral fellow, later research scientist", "place": "Harvard-MIT Biomedical Engineering Center, MIT (Prof. Elazer Edelman)", "year": "to 2020", "note": "Medical engineering."}, {"degree": "MSc, Aerospace Engineering", "place": "Sharif University of Technology", "year": "2007", "note": ""}, {"degree": "BSc, Aerospace Engineering", "place": "Amirkabir University of Technology", "year": "2004", "note": ""}], "awards": ["Pillars of Excellence Award (2021, 2024)", "SPOT Award (2021)", "IGNITE Award (2023)", "Critical Care & Resuscitation Award (2023)", "Katelyn M. Caruso & Rapid AI Chairs of Research (2024)", "Mentorship Award (2024)"], "keywords": ["Cardiovascular models", "Biomechanics", "Medical device design", "Computer-assisted image processing", "ECMO", "Cardiac surgery", "Medical engineering", "AI"], "links": [{"label": "Harvard Catalyst", "url": "https://connects.catalyst.harvard.edu/Profiles/display/Person/200912"}, {"label": "Google Scholar", "url": "https://scholar.google.com/citations?user=n-1I8IIAAAAJ&hl=en"}, {"label": "ORCID 0000-0002-4210-3177", "url": "https://orcid.org/0000-0002-4210-3177"}, {"label": "Edelman Lab, MIT", "url": "https://edelmanlab.mit.edu/current-members/farhad-r-nezami"}, {"label": "MIT site", "url": "https://sites.mit.edu/farhad/?p=16"}, {"label": "“On a Mission” feature (2023)", "url": "https://www.brighamhealthonamission.org/2023/05/15/applying-engineering-expertise-to-enrich-diagnost"}, {"label": "X: @FarhadRNezami", "url": "https://x.com/FarhadRNezami"}], "source": "Harvard Catalyst, Edelman Lab and MIT pages, University of Zurich Interface Group. Award years are from Harvard Catalyst."}}, "statuses": {"grant": {"label": "Funded project (grant)", "short": "Grants", "tag": "Grant"}, "journal": {"label": "Journal paper (published or preprint)", "short": "Journal papers", "tag": "Journal paper"}, "conference": {"label": "Conference paper or abstract", "short": "Conference papers & abstracts", "tag": "Conference"}, "hsrd": {"label": "HSRD 2027 · current project (not yet public)", "short": "HSRD 2027", "tag": "HSRD 2027"}}, "areas": [{"id": "ai", "label": "AI for Perioperative & Critical Care", "short": "AI & Perioperative Care", "color": "#2563a8", "description": "Machine learning, time-series models and language-model tools that predict complications after cardiac surgery, track ICU patients and help clinicians use the patient record.", "siteBasis": "Scholar profile and HSRD 2027 abstracts. The lab website has no separate page for this area yet.", "subtopics": [{"id": "ai-risk", "label": "Postoperative complication prediction", "short": "Postop risk", "description": "Predicting infections and other complications from preoperative and intraoperative data.", "items": [{"id": "hsrd-weimann", "status": "hsrd", "short": "Sepsis & pneumonia prediction", "title": "Machine-learning prediction of sepsis and pneumonia after cardiac surgery", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Julian Weimann (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}]}, {"id": "ai-icu", "label": "ICU deterioration & patient trajectories", "short": "ICU trajectories", "description": "Risk prediction that follows patients over time in the cardiac ICU.", "items": [{"id": "hsrd-cicu-trace", "status": "hsrd", "short": "CICU-TRACE", "title": "CICU-TRACE: predicting postoperative deterioration after congenital heart surgery", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Amin Ramezani (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}]}, {"id": "ai-ecg", "label": "ECG & arrhythmia prediction", "short": "ECG & arrhythmia", "description": "Deep learning on continuous ECG and physiological signals to predict atrial fibrillation before it starts.", "items": [{"id": "hsrd-ehrig", "status": "hsrd", "short": "AF prediction in the ICU", "title": "Deep-learning prediction of new-onset atrial fibrillation in the cardiovascular ICU", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Martin Ehrig (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pre-beatai", "status": "journal", "short": "BeatAI", "title": "BeatAI: BiomEtrics for Atrial Arrhythmia Tracking Using Artificial Intelligence", "year": 2025, "venue": "medRxiv", "people": "Ramezani A, Maddah N, Heine M, Homaei A, Simeth L, Mazuera L, Osho A, Muehlschlegel JD, Wollborn J, Nezami FR", "peopleNote": "Authors from the medRxiv citation record.", "description": "Preprint that tests whether continuous ECG-patch monitoring combined with deep learning improves early risk stratification and near-real-time prediction of postoperative atrial fibrillation after cardiac surgery.", "url": "https://doi.org/10.1101/2025.10.05.25336766", "linkType": "doi"}]}, {"id": "ai-llm", "label": "Clinical records & AI assistants", "short": "Records & assistants", "description": "Tools that answer questions from long hospital records and support clinical decisions.", "items": [{"id": "hsrd-rouhollahi", "status": "hsrd", "short": "Clinical-record QA", "title": "Answering questions from cardiac surgery records with a lightweight local system", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Amir Rouhollahi (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pre-ragnosis", "status": "journal", "short": "RAGnosis", "title": "RAGnosis: Retrieval-Augmented Generation for Enhanced Medical Decision Making", "year": 2025, "venue": "medRxiv", "people": "Rouhollahi A, Homaei A, Sahu A, Harari RE, Nezami FR", "peopleNote": "Authors as listed on the lab Publications page and Scholar.", "description": "Preprint on retrieval-augmented generation for clinical decision support.", "url": "https://doi.org/10.1101/2025.06.11.25329438", "linkType": "doi"}, {"id": "pre-cardiacgpt", "status": "journal", "short": "CardiacGPT", "title": "CardiacGPT™: A Real-Time AI Assistant for Intraoperative Guidance and Postoperative Decision Support in Cardiac Surgery", "year": 2025, "venue": "medRxiv", "people": "Ramezani A, Moradmand A, Nezami FR", "peopleNote": "Authors as listed on Google Scholar.", "description": "Preprint describing a real-time AI assistant for the cardiac surgery operating room and postoperative care.", "url": "https://doi.org/10.1101/2025.08.30.25334720", "linkType": "doi"}, {"id": "pre-cadence", "status": "journal", "short": "Cadence", "title": "Cadence: A Benchmark Evaluation of the Narrative Velocity Framework for Next Clinical Event Prediction in MIMIC-IV", "year": 2026, "venue": "bioRxiv", "people": "Rouhollahi A, Nezami FR", "peopleNote": "Authors as listed on Google Scholar.", "description": "Preprint that benchmarks a framework for predicting the next clinical event from MIMIC-IV records.", "url": "https://doi.org/10.64898/2026.05.06.722409", "linkType": "doi"}]}, {"id": "ai-data", "label": "Clinical data integrity & lab interpretation", "short": "Data integrity", "description": "Clinical data quality, missing data and interpretation of lab tests.", "items": [{"id": "hsrd-chloe", "status": "hsrd", "short": "TEG-PM interpretation", "title": "Interpreting thromboelastography platelet-mapping results for antiplatelet decisions", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Chloe (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "unc-maddah-imputation", "status": "journal", "short": "Generative imputation", "title": "Generative AI-Based Imputation to Preserve Data Fidelity and Enhance Outcome Prediction: A Multi-Institutional Study in Cardiac Surgery", "year": 2026, "venue": "Research Square (preprint)", "people": "Maddah N, Ramezani A, Jin Q, Wollborn J, Itoh A, Rabb JB, Mazhude F, …", "peopleNote": "Truncated author list from Google Scholar. The preprint is on Research Square.", "description": "Multi-institutional cardiac-surgery study of generative-AI imputation for outcome prediction (title-level description).", "url": "https://doi.org/10.21203/rs.3.rs-8303629/v1", "linkType": "doi"}]}]}, {"id": "model", "label": "Cardiovascular Modeling & Digital Twins", "short": "Modeling & Digital Twins", "color": "#0f7a6c", "description": "Computational models of the heart, circulation and life-support devices (Impella, ECMO, ex vivo perfusion), plus generative models that create virtual patient anatomies.", "siteBasis": "Lab Emergency Medicine page: “Mechanical support systems, artificial heart/lung, and transplantation”.", "subtopics": [{"id": "mod-impella", "label": "Impella & biventricular modeling", "short": "Impella & MCS", "description": "Computational and experimental study of Impella and biventricular support.", "items": [{"id": "hsrd-valmaggia", "status": "hsrd", "short": "Impella modeling", "title": "Modeling and parameter identification of the Impella-supported circulation", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Christian Valmaggia (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "hsrd-ramezani-effusion", "status": "hsrd", "short": "Effusion during Impella", "title": "Pericardial effusion during Impella support in a large-animal model", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Amin Ramezani (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}]}, {"id": "mod-ecmo", "label": "ECMO & heart–lung support", "short": "ECMO", "description": "Fluid-dynamics and system-level models of ECMO and the failing heart, moving toward closed-loop control.", "items": [{"id": "grant-darpa-ironman", "status": "grant", "short": "DARPA IRON MAN (autonomous ECMO)", "title": "IRON MAN: Innovative Resuscitation and Optimized Novel Multi-organ support with Autonomous ECMO for Non-medical personnel and medics", "year": 2024, "venue": "DARPA N660012424024 · Sep 2024 – Feb 2027", "people": "Steve Keller (lead PI); Farhad R. Nezami (Site PI)", "peopleNote": "From Harvard Catalyst.", "description": "DARPA program on autonomous ECMO for resuscitation and multi-organ support. It is related to the lab's closed-loop ECMO digital-twin work.", "url": "https://connects.catalyst.harvard.edu/Profiles/display/Person/200912", "linkType": "profile", "linkNote": "Grant listed on Harvard Catalyst."}, {"id": "pub-ecmo-cfd-2021", "status": "journal", "short": "ECMO–failing heart CFD", "title": "A Computational Fluid Dynamics Study of the Extracorporeal Membrane Oxygenation-Failing Heart Circulation", "year": 2021, "venue": "ASAIO Journal 67(3)", "people": "Nezami FR, Khodaee F, Edelman ER, Keller SP", "peopleNote": "From PubMed Central.", "description": "CFD study of how ECMO flow and native cardiac output interact, including the watershed region in the aorta.", "url": "https://doi.org/10.1097/MAT.0000000000001221", "linkType": "doi", "pmid": "33627601"}, {"id": "pub-khodaee-2022", "status": "journal", "short": "Anatomy & ECMO", "title": "Effect of anatomical variation on extracorporeal membrane oxygenation circulatory support: A computational study", "year": 2022, "venue": "Computers in Biology and Medicine 141", "people": "Khodaee F, Nezami FR, Zampell BA, Galper E, Edelman ER, Keller SP", "peopleNote": "From PubMed Central.", "description": "Studies how patient-specific vascular anatomy changes hemodynamics and end-organ perfusion under ECMO.", "url": "https://pubmed.ncbi.nlm.nih.gov/34995875/", "linkType": "pubmed", "linkNote": "PubMed record PMID 34995875 (listed on Harvard Catalyst).", "pmid": "34995875"}, {"id": "pub-moradi-2024", "status": "journal", "short": "Upper-body VA-ECMO", "title": "Effect of upper body venoarterial ECMO on systemic hemodynamics and oxygenation: A computational study", "year": 2024, "venue": "Computers in Biology and Medicine 182", "people": "Moradi H, Seethala RR, Edelman ER, Keller SP, Nezami FR", "peopleNote": "From the lab Publications page.", "description": "Computational study of upper-body VA-ECMO configurations and their effect on systemic hemodynamics and oxygenation.", "url": "https://doi.org/10.1016/j.compbiomed.2024.109124", "linkType": "doi", "pmid": "39276613"}, {"id": "pre-ecmo-digital-twin", "status": "journal", "short": "Closed-loop ECMO twin", "title": "A closed-loop digital twin framework for automated control of extracorporeal membrane oxygenation: toward physiology-aware decision support in critical care", "year": 2026, "venue": "medRxiv", "people": "Ramezani A, Seefeldt T, Keller SP, Hackmann AE, Osho A, Rabi SA, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Preprint on a digital-twin framework for automated, physiology-aware ECMO control.", "url": "https://doi.org/10.64898/2026.01.01.26343307", "linkType": "doi"}]}, {"id": "mod-exvivo", "label": "Ex vivo heart perfusion & transplantation", "short": "Ex vivo perfusion", "description": "Using lumped-parameter models to assess donor-heart function during ex vivo perfusion.", "items": [{"id": "pub-roig-2025", "status": "journal", "short": "Ex vivo heart LPM", "title": "Evaluating cardiac function in ex vivo heart perfusion using lumped parameter models", "year": 2025, "venue": "Computers in Biology and Medicine 189", "people": "Casamitjana Roig R, Li SS, Asheghan M, Olverson G, Vincent D, Bolger-Chen M, Ajenu E, Lopera Higuita M, Tessier SN, Osho A, D'Alessandro DA, Rabi SA, Nezami FR", "peopleNote": "From the lab Publications page.", "description": "Lumped-parameter models for assessing cardiac function in hearts on ex vivo perfusion.", "url": "https://doi.org/10.1016/j.compbiomed.2025.109922", "linkType": "doi", "pmid": "40037166"}]}, {"id": "mod-gen", "label": "Generative anatomy & virtual cohorts", "short": "Generative anatomy", "description": "Diffusion models that edit or generate patient anatomies for in silico device trials.", "items": [{"id": "pub-kadry-npj-2024", "status": "journal", "short": "Digital siblings", "title": "Probing the limits and capabilities of diffusion models for the anatomic editing of digital twins", "year": 2024, "venue": "npj Digital Medicine 7(1):354", "people": "Kadry K, Gupta S, Nezami FR, Edelman ER", "peopleNote": "Authors from PubMed. (The lab Publications page lists other names by mistake.)", "description": "Uses latent diffusion models to edit digital twins of cardiac anatomy into “digital siblings” for comparative device simulations and virtual-cohort augmentation.", "url": "https://doi.org/10.1038/s41746-024-01332-0", "linkType": "doi", "pmid": "39632966"}, {"id": "conf-kadry-eccv-2024", "status": "conference", "short": "Simulation-ready coronaries", "title": "A diffusion model for simulation ready coronary anatomy with morpho-skeletal control", "year": 2024, "venue": "European Conference on Computer Vision (ECCV)", "people": "Kadry K, Gupta S, Sogbadji J, Schaap M, Petersen K, Mizukami T, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Diffusion model that generates simulation-ready coronary anatomy with control over shape and skeleton.", "url": "https://scholar.google.com/scholar?q=%22A+diffusion+model+for+simulation+ready+coronary+anatomy+with+morpho-skeletal+control%22", "linkType": "scholar", "linkNote": "Checked on Google Scholar; DOI not yet added."}, {"id": "conf-cardiocomposer-2026", "status": "conference", "short": "CardioComposer", "title": "Cardiocomposer: Leveraging differentiable geometry for compositional control of anatomical diffusion models", "year": 2026, "venue": "International Conference on Learning Representations (ICLR) 2026", "people": "Kadry K, Goraya S, Manicka A, Abdelwahed A, Chutisilp N, Nezami F, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Compositional, geometry-guided control of anatomical diffusion models.", "url": "https://scholar.google.com/scholar?q=%22Cardiocomposer%22+differentiable+geometry+anatomical+diffusion", "linkType": "scholar", "linkNote": "Checked on Google Scholar; DOI not yet added."}, {"id": "pub-endovascular-dt-2026", "status": "journal", "short": "Digital twins review", "title": "Toward Smart and Adaptive Endovascular Devices: The Role of Digital Twins in Precision Vascular Medicine", "year": 2026, "venue": "Interventional Cardiology Clinics 15(2)", "people": "Rezaeitaleshmahalleh M, Edelman ER, Nezami FR", "peopleNote": "From Google Scholar.", "description": "Review of how digital twins can support adaptive endovascular devices.", "url": "https://pubmed.ncbi.nlm.nih.gov/41850797/", "linkType": "pubmed", "linkNote": "PubMed record PMID 41850797 (listed on Harvard Catalyst).", "pmid": "41850797"}]}]}, {"id": "imaging", "label": "Imaging & Structural Heart Interventions", "short": "Imaging & Structural Heart", "color": "#6b4fa0", "description": "Automated CT analysis, TAVR outcome prediction and image guidance during procedures, built on patient-specific anatomy.", "siteBasis": "Lab Cardiac Surgery page: “Vascular and valvular diseases, cardiomyopathy, statistical shape analysis, robotics”.", "subtopics": [{"id": "img-seg", "label": "CT segmentation & anatomic reconstruction", "short": "CT segmentation", "description": "Deep-learning pipelines that turn CT scans into 3D patient models.", "items": [{"id": "pub-cardiovision-2023", "status": "journal", "short": "CardioVision", "title": "CardioVision: A fully automated deep learning package for medical image segmentation and reconstruction generating digital twins for patients with aortic stenosis", "year": 2023, "venue": "Computerized Medical Imaging and Graphics 109", "people": "Rouhollahi A, Willi JN, Haltmeier S, Mehrtash A, Straughan R, Javadikasgari H, Brown J, Itoh A, de la Cruz KI, Aikawa E, Edelman ER, Nezami FR", "peopleNote": "From PubMed.", "description": "Fully automated segmentation of the aortic root, native valve and calcification from CT to build digital twins for aortic stenosis.", "url": "https://doi.org/10.1016/j.compmedimag.2023.102289", "linkType": "doi", "pmid": "37633032"}, {"id": "pub-qin-2026", "status": "journal", "short": "Myocardium segmentation", "title": "Refined myocardium segmentation from CT using a hybrid-fusion transformer", "year": 2026, "venue": "Biomedical Signal Processing and Control 119", "people": "Qin S, Xing F, Cho J, Park J, Liu X, Rouhollahi A, Farhat EJB, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Transformer-based method for refined myocardium segmentation from CT.", "url": "https://pubmed.ncbi.nlm.nih.gov/41292924/", "linkType": "pubmed", "linkNote": "PubMed record of the bioRxiv version (PMID 41292924). Scholar lists the journal version.", "pmid": "41292924"}]}, {"id": "img-tavr", "label": "TAVR & valve outcome prediction", "short": "TAVR outcomes", "description": "Using CT-derived anatomy and calcium to predict complications and remodeling after TAVR.", "items": [{"id": "grant-r21-sex-as", "status": "grant", "short": "NIH R21: sex & AS remodeling", "title": "Leveraging Sexual Dimorphism to Predict Cardiac Remodeling and Enhance Treatment in Women with Severe Aortic Stenosis", "year": 2024, "venue": "NIH R21HL173731 · Sep 2024 – Aug 2026", "people": "Farhad Rikhtegar Nezami (Principal Investigator)", "peopleNote": "From Harvard Catalyst (NIH ExPORTER).", "description": "NIH-funded project on sex differences in cardiac remodeling after treatment for severe aortic stenosis. It is related to the lab's TAVR remodeling preprints and abstracts.", "url": "https://connects.catalyst.harvard.edu/Profiles/display/Person/200912", "linkType": "profile", "linkNote": "Grant listed on Harvard Catalyst. To see the NIH record, search R21HL173731 on NIH RePORTER."}, {"id": "pre-lv-geometry-sex-2026", "status": "journal", "short": "Sex-specific LV geometry", "title": "Left Ventricular Geometry Improves Prediction of Sex-Specific Post-TAVR Remodeling in Aortic Stenosis", "year": 2026, "venue": "medRxiv", "people": "Goraya SA, Lauwers P, Javadikasgari H, Rouhollahi A, Homaei A, Masoumi S, Zancanaro E, Rezaeitaleshmahalleh M, Ayers BC, Hirji S, Alkhouli M, Jassar A, Aganj I, Sabe A, Nezami FR", "peopleNote": "From Harvard Catalyst (PubMed).", "description": "Preprint testing whether left-ventricular geometry improves prediction of sex-specific remodeling after TAVR.", "url": "https://pubmed.ncbi.nlm.nih.gov/41959755/", "linkType": "pubmed", "pmid": "41959755"}, {"id": "hsrd-maw", "status": "hsrd", "short": "TAVR paravalvular leak", "title": "CT-based prediction of paravalvular leak after TAVR", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Nathaniel Maw (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pub-asheghan-2023", "status": "journal", "short": "LV mass regression", "title": "Predicting one-year left ventricular mass index regression following transcatheter aortic valve replacement in patients with severe aortic stenosis: A new era is coming", "year": 2023, "venue": "Frontiers in Cardiovascular Medicine 10", "people": "Asheghan MM, Javadikasgari H, Attary T, Rouhollahi A, Straughan R, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Predicts one-year regression of left ventricular mass after TAVR.", "url": "https://pubmed.ncbi.nlm.nih.gov/37082454/", "linkType": "pubmed", "linkNote": "PubMed record PMID 37082454 (listed on Harvard Catalyst).", "pmid": "37082454"}, {"id": "pre-lv-remodeling-2026", "status": "journal", "short": "Post-TAVR remodeling", "title": "Early Prediction of Post-TAVR Left Ventricular Remodeling Using CT-Derived Radiomics and Clinical Variables", "year": 2026, "venue": "medRxiv", "people": "Rezaeitaleshmahalleh M, Masoumi S, Razaviamri F, Rouhollahi A, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Preprint combining CT radiomics with clinical variables to predict LV remodeling after TAVR.", "url": "https://doi.org/10.64898/2026.05.28.26354361", "linkType": "doi"}, {"id": "abs-tct390-2023", "status": "conference", "short": "AI calcium burden (TCT)", "title": "TCT-390 AI-Guided Assessment of Calcium Burden for Enhanced Risk Stratification and Outcome Prediction in Severe Aortic Stenosis Patients Undergoing Transcatheter Aortic Valve …", "year": 2023, "venue": "Journal of the American College of Cardiology 82(17 Suppl)", "people": "Rouhollahi A, Haltmeier S, Javadikasgari H, Farhat EB, Cruz K, Aikawa E, …", "peopleNote": "Truncated author list and title from Google Scholar.", "description": "Published TCT conference abstract on AI-based calcium-burden assessment in TAVR candidates.", "url": "https://scholar.google.com/scholar?q=%22TCT-390%22+AI-Guided+Assessment+of+Calcium+Burden", "linkType": "scholar", "linkNote": "Checked on Google Scholar; DOI not yet added."}]}, {"id": "img-guide", "label": "Intraprocedural guidance & registration", "short": "Image guidance", "description": "Registering preoperative CT and intravascular imaging for guidance during procedures.", "items": [{"id": "hsrd-steiger", "status": "hsrd", "short": "CT–fluoroscopy registration", "title": "Deep-learning coregistration of aortic CT with intraoperative fluoroscopy", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Ivan Steiger (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pub-kadry-tmi-2025", "status": "journal", "short": "CT–intravascular registration", "title": "Morphology-based non-rigid registration of coronary computed tomography and intravascular images through virtual catheter path optimization", "year": 2025, "venue": "IEEE Transactions on Medical Imaging 44(2)", "people": "Kadry K, Olender ML, Schuh A, Karmakar A, Petersen K, Schaap M, …", "peopleNote": "Truncated author list; year confirmed as 2025 (PubMed via Harvard Catalyst).", "description": "Registers coronary CT with intravascular imaging by optimizing a virtual catheter path.", "url": "https://pubmed.ncbi.nlm.nih.gov/39374277/", "linkType": "pubmed", "linkNote": "PubMed record PMID 39374277 (listed on Harvard Catalyst).", "pmid": "39374277"}]}, {"id": "img-cabg", "label": "Coronary surgical planning", "short": "CABG planning", "description": "AI tools that go from coronary CT angiography to bypass-surgery planning.", "items": [{"id": "pre-ccta-cabg-2026", "status": "journal", "short": "CCTA → CABG strategy", "title": "From CCTA to Surgical Strategy: An Integrated AI Framework for Patient-Specific Coronary artery bypass grafting Planning", "year": 2026, "venue": "medRxiv", "people": "Rezaeitaleshmahalleh M, Masoumi S, Debalme E, Sundt T, Aranki SF, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Preprint on an AI framework that supports patient-specific CABG planning from coronary CT angiography.", "url": "https://www.medrxiv.org/search/%22From%20CCTA%20to%20Surgical%20Strategy%22", "linkType": "preprint", "linkNote": "Opens a medRxiv search for this title."}, {"id": "abs-tct413-2026", "status": "conference", "short": "Coronary mapping (TCT)", "title": "TCT-413 AI-Driven Automated Tool for Realtime Coronary Artery Mapping and Flow Prediction for Personalized Preoperative Planning in Coronary Artery Bypass Grafting (CABG) from …", "year": 2026, "venue": "Journal of the American College of Cardiology 88(18 Suppl)", "people": "Masoumi S, Rezaeitaleshmahalleh S, Debalme E, Sundt T III, Aranki S, …", "peopleNote": "Truncated author list and title from Google Scholar.", "description": "Published TCT conference abstract on automated coronary mapping and flow prediction for CABG planning.", "url": "https://scholar.google.com/scholar?q=%22TCT-413%22+Coronary+Artery+Mapping+CABG", "linkType": "scholar", "linkNote": "Checked on Google Scholar; DOI not yet added."}]}]}, {"id": "vascular", "label": "Vascular Disease & Endovascular Therapy", "short": "Vascular Disease & Devices", "color": "#a63d4a", "description": "Atherosclerotic lesion characterization, vessel-wall mechanics, stent and device performance, aortic disease, and brain-aneurysm flow diversion.", "siteBasis": "Lab Atherosclerosis page: “Lesion characterization, risk stratification, and endovascular implants development”.", "subtopics": [{"id": "vas-plaque", "label": "Atherosclerotic lesion characterization", "short": "Plaque imaging", "description": "Automated analysis of intravascular OCT images to characterize plaque and calcium.", "items": [{"id": "pub-liu-2024", "status": "journal", "short": "OCT calcium segmentation", "title": "A transformer-based pyramid network for coronary calcified plaque segmentation in intravascular optical coherence tomography images", "year": 2024, "venue": "Computerized Medical Imaging and Graphics 113", "people": "Liu Y, Nezami FR, Edelman ER", "peopleNote": "From Google Scholar.", "description": "Transformer network that segments calcified plaque in intravascular OCT.", "url": "https://pubmed.ncbi.nlm.nih.gov/38341945/", "linkType": "pubmed", "linkNote": "PubMed record PMID 38341945 (listed on Harvard Catalyst).", "pmid": "38341945"}, {"id": "pub-olender-2022", "status": "journal", "short": "Mixed plaque class", "title": "Impact and implications of mixed plaque class in automated characterization of complex atherosclerotic lesions", "year": 2022, "venue": "Computerized Medical Imaging and Graphics 97", "people": "Olender ML, Niu Y, Marlevi D, Edelman ER, Nezami FR", "peopleNote": "From Google Scholar.", "description": "How mixed plaque types affect automated characterization of complex lesions.", "url": "https://pubmed.ncbi.nlm.nih.gov/35272217/", "linkType": "pubmed", "linkNote": "PubMed record PMID 35272217 (listed on Harvard Catalyst).", "pmid": "35272217"}, {"id": "pub-liu-2026", "status": "journal", "short": "Lithotripsy response", "title": "Deep Learning-Based Assessment of Coronary Artery Morphologies for Predicting Responsiveness to Intravascular Lithotripsy", "year": 2026, "venue": "JACC: Advances 5(9)", "people": "Liu Y, Nezami FR, Edelman ER", "peopleNote": "From Google Scholar.", "description": "Deep learning on coronary morphology to predict response to intravascular lithotripsy.", "url": "https://pubmed.ncbi.nlm.nih.gov/42561486/", "linkType": "pubmed", "linkNote": "PubMed record PMID 42561486 (listed on Harvard Catalyst).", "pmid": "42561486"}]}, {"id": "vas-mech", "label": "Plaque & vessel-wall mechanics", "short": "Wall mechanics", "description": "Patient-specific finite-element models and inverse methods built from intravascular imaging.", "items": [{"id": "pub-kadry-jrsi-2021", "status": "journal", "short": "Patient-specific plaque FE", "title": "A platform for high-fidelity patient-specific structural modelling of atherosclerotic arteries: from intravascular imaging to three-dimensional stress distributions", "year": 2021, "venue": "Journal of the Royal Society Interface 18(182)", "people": "Kadry K, Olender ML, Marlevi D, Edelman ER, Nezami FR", "peopleNote": "From the publisher record.", "description": "Builds 3D multi-material plaque models from OCT and simulates their mechanical response with finite elements.", "url": "https://doi.org/10.1098/rsif.2021.0436", "linkType": "doi", "pmid": "34583562"}, {"id": "pub-straughan-2023", "status": "journal", "short": "Automated OCT → FE", "title": "Fully automated construction of three-dimensional finite element simulations from optical coherence tomography", "year": 2023, "venue": "Computers in Biology and Medicine 165", "people": "Straughan R, Kadry K, Parikh SA, Edelman ER, Nezami FR", "peopleNote": "From Google Scholar. DOI from the Crossref reference list.", "description": "End-to-end automation from OCT images to 3D finite-element simulations of coronary arteries.", "url": "https://doi.org/10.1016/j.compbiomed.2023.107341", "linkType": "doi", "pmid": "37611423"}, {"id": "pub-narayanan-2021", "status": "journal", "short": "Inverse wall mechanics", "title": "An inverse method for mechanical characterization of heterogeneous diseased arteries using intravascular imaging", "year": 2021, "venue": "Scientific Reports 11", "people": "Narayanan B, Olender ML, Marlevi D, Edelman ER, Nezami FR", "peopleNote": "From Google Scholar.", "description": "Inverse method that estimates the mechanical properties of diseased arteries from intravascular imaging.", "url": "https://pubmed.ncbi.nlm.nih.gov/34795350/", "linkType": "pubmed", "linkNote": "PubMed record PMID 34795350 (listed on Harvard Catalyst).", "pmid": "34795350"}]}, {"id": "vas-device", "label": "Stents & endovascular devices", "short": "Stents & devices", "description": "In silico evaluation of stent deployment, lesion preparation and vascular injury.", "items": [{"id": "grant-r01-lesion", "status": "grant", "short": "NIH R01: lesion modification", "title": "Personalized lesion modification optimizes atherosclerosis intervention", "year": 2022, "venue": "NIH R01HL161069 · Jan 2022 – Dec 2025", "people": "Elazer R. Edelman (PI); Farhad R. Nezami (Co-Investigator)", "peopleNote": "From Harvard Catalyst (NIH ExPORTER).", "description": "NIH-funded project on personalizing lesion preparation before atherosclerosis intervention. It is related to the lesion-preparation, lithotripsy and plaque-mechanics papers.", "url": "https://connects.catalyst.harvard.edu/Profiles/display/Person/200912", "linkType": "profile", "linkNote": "Grant listed on Harvard Catalyst. To see the NIH record, search R01HL161069 on NIH RePORTER."}, {"id": "pub-sogbadji-2025", "status": "journal", "short": "Lesion preparation in silico", "title": "Impact of lesion preparation-induced calcified plaque defects in vascular intervention for atherosclerotic disease: in silico assessment", "year": 2025, "venue": "Biomechanics and Modeling in Mechanobiology 24(2)", "people": "Sogbadji J, Kadry K, Poletti G, Berti F, Edelman ER, Nezami FR", "peopleNote": "From Google Scholar.", "description": "In silico assessment of how defects in calcified plaque from lesion preparation affect vascular intervention.", "url": "https://doi.org/10.1007/s10237-024-01923-6", "linkType": "doi", "pmid": "39836287"}, {"id": "pub-conway-2021", "status": "journal", "short": "Stent endothelial injury", "title": "Acute stent-induced endothelial denudation: biomechanical predictors of vascular injury", "year": 2021, "venue": "Frontiers in Cardiovascular Medicine 8", "people": "Conway C, Nezami FR, Rogers C, Groothuis A, Squire JC, Edelman ER", "peopleNote": "From Google Scholar. DOI from the Crossref reference list.", "description": "Biomechanical predictors of acute endothelial denudation caused by stents.", "url": "https://doi.org/10.3389/fcvm.2021.733605", "linkType": "doi", "pmid": "34722666"}, {"id": "pre-diffstent-2026", "status": "journal", "short": "DiffStent", "title": "DiffStent: Surrogate Adjoint Differentiation for Stent Deployment in Anisotropic Arteries", "year": 2026, "venue": "arXiv", "people": "Goraya SA, Manicka A, Jain A, Kadry K, Ruiperez-Campillo S, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Preprint on differentiable surrogate modeling of stent deployment in anisotropic arteries.", "url": "https://arxiv.org/abs/2611.00014", "linkType": "preprint"}, {"id": "pub-phd-exvivo-2013", "status": "journal", "short": "Stented artery method (PhD)", "title": "Compound ex vivo and in silico method for hemodynamic analysis of stented arteries", "year": 2013, "venue": "PLoS One 8(3):e58147", "people": "Rikhtegar F, Pacheco F, Wyss C, Stok KS, Ge H, Choo RJ, Ferrari A, Poulikakos D, Müller R, Kurtcuoglu V", "peopleNote": "From PubMed Central.", "description": "Foundational work from the PhD at ETH Zurich: a combined ex vivo and in silico method for hemodynamics in stented arteries.", "url": "https://doi.org/10.1371/journal.pone.0058147", "linkType": "doi", "pmid": "23516442"}, {"id": "pub-overlap-stents-2014", "status": "journal", "short": "Overlapping stents", "title": "Hemodynamics in coronary arteries with overlapping stents", "year": 2014, "venue": "Journal of Biomechanics 47(2):505–511", "people": "Rikhtegar F, Wyss C, Stok KS, Poulikakos D, Müller R, Kurtcuoglu V", "peopleNote": "From the publisher record.", "description": "Foundational ETH Zurich study of how overlapping coronary stents change local hemodynamics.", "url": "https://doi.org/10.1016/j.jbiomech.2013.10.048", "linkType": "doi", "pmid": "24275438"}]}, {"id": "vas-aorta", "label": "Aortic disease: biology & mechanics", "short": "Aortic disease", "description": "Cellular phenotypes, tissue mechanics and shape–hemodynamics interactions in aortic aneurysm, dissection and coarctation.", "items": [{"id": "hsrd-razaviamri", "status": "hsrd", "short": "Aneurysm cell phenotypes", "title": "Cellular phenotypes in ascending aortic aneurysm", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Fatemeh Razaviamri (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pub-williams-2022", "status": "journal", "short": "Dissection shape & flow", "title": "Aortic Dissection is Determined by Specific Shape and Hemodynamic Interactions", "year": 2022, "venue": "Annals of Biomedical Engineering 50(12)", "people": "Williams JG, Marlevi D, Bruse JL, Nezami FR, Moradi H, Fortunato RN, Maiti S, Billaud M, Edelman ER, Gleason TG", "peopleNote": "Full author list from Harvard Catalyst (PubMed).", "description": "Links aortic dissection to specific interactions between aortic shape and hemodynamics.", "url": "https://pubmed.ncbi.nlm.nih.gov/35943618/", "linkType": "pubmed", "linkNote": "PubMed record PMID 35943618 (listed on Harvard Catalyst).", "pmid": "35943618"}, {"id": "pub-coarctation-2026", "status": "journal", "short": "Coarctation hypertension", "title": "Predicting Hypertension Persistence in Coarctation of the Aorta: A Feasibility Study", "year": 2026, "venue": "Annals of Biomedical Engineering 54(9):2947–2960", "people": "Rezaeitaleshmahalleh M, Asheghan M, Attary T, Rouhollahi A, Homaei A, …", "peopleNote": "Truncated author list from Google Scholar.", "description": "Feasibility study on predicting whether hypertension persists in coarctation of the aorta.", "url": "https://pubmed.ncbi.nlm.nih.gov/41733840/", "linkType": "pubmed", "linkNote": "PubMed record PMID 41733840 (listed on Harvard Catalyst).", "pmid": "41733840"}, {"id": "abs-tct575-2026", "status": "conference", "short": "Collagen & AAA mechanics", "title": "TCT-575 Collagen Fiber Organization Determines Arterial Wall Mechanics in Abdominal Aortic Aneurysm", "year": 2026, "venue": "Journal of the American College of Cardiology 88(18 Suppl)", "people": "Asadbeygi A, Agrawal Y, Rezaeitaleshmahalleh S, Nezami F", "peopleNote": "From Google Scholar.", "description": "Published TCT conference abstract on how collagen fiber organization shapes wall mechanics in abdominal aortic aneurysm.", "url": "https://scholar.google.com/scholar?q=%22Collagen+Fiber+Organization+Determines+Arterial+Wall+Mechanics+in+Abdominal+Aortic+Aneurysm%22", "linkType": "scholar", "linkNote": "Checked on Google Scholar; DOI not yet added."}]}, {"id": "vas-brain", "label": "Brain aneurysms & flow diversion", "short": "Brain aneurysms", "description": "Predicting treatment success and clotting risk after flow-diverter treatment of brain aneurysms, using 3D vessel imaging, flow simulation and clinical data.", "items": [{"id": "grant-baf", "status": "grant", "short": "Brain Aneurysm Foundation grant", "title": "Predicting flow-diverter treatment success and thrombosis risk in brain aneurysms (project description)", "year": null, "venue": "Brain Aneurysm Foundation research grant", "people": "Farhad R. Nezami, PhD", "peopleNote": "From the Brain Aneurysm Foundation grant page. The page does not list the official title or award year.", "description": "Computational and machine-learning models that use detailed 3D vessel images, blood-flow simulations and US patient data to predict treatment success and clotting risk after flow diversion. The aim is personalized treatment decisions.", "url": "https://www.bafound.org/research/research-grant-awards/farhad-r-nezami-phd/", "linkType": "publisher"}]}]}, {"id": "bio", "label": "Biomaterials & Tissue Engineering", "short": "Biomaterials & Tissue Eng.", "color": "#9a6a12", "description": "Adhesive and hemostatic materials for surgical and trauma bleeding, perfusion-supported cardiac bioprinting, and quantitative imaging of cell–scaffold interactions.", "siteBasis": "Lab Research page (biomaterials named as a core discipline), Scholar, and HSRD 2027 abstracts.", "subtopics": [{"id": "bio-adh", "label": "Adhesive & hemostatic materials", "short": "Hemostatic adhesives", "description": "Tissue adhesives and hemostatic materials for surgical and trauma bleeding.", "items": [{"id": "hsrd-verleyen", "status": "hsrd", "short": "Hydrogel access closure", "title": "Adhesive hydrogel for large-bore arterial access closure", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Charlotte Verleyen (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "hsrd-fadouach", "status": "hsrd", "short": "Hemostatic powder", "title": "Adhesive microgel hemostatic powders for junctional hemorrhage", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Lylia Fadouach (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}]}, {"id": "bio-card", "label": "Cardiac tissue engineering & bioprinting", "short": "Biofabrication", "description": "Perfusion-supported, multiday bioprinting of viable, contractile cardiac tissue.", "items": [{"id": "hsrd-bouceneche", "status": "hsrd", "short": "Cardiac bioprinting", "title": "Perfusion-supported bioprinting of cardiac tissue", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Mohcene Maher Bouceneche (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pub-saber-2026", "status": "journal", "short": "SABER platform", "title": "SABER bioprinting: a temporal platform for multiday assembly of engineered tissues", "year": 2026, "venue": "Biofabrication 18(4)", "people": "Gershlak JR, Goraya SA, Billaud M, Nezami FR, Ott HC", "peopleNote": "From Google Scholar.", "description": "Introduces SABER, a platform for multiday, sequential assembly of engineered tissues under perfusion.", "url": "https://pubmed.ncbi.nlm.nih.gov/42447888/", "linkType": "pubmed", "linkNote": "PubMed record PMID 42447888 (listed on Harvard Catalyst).", "pmid": "42447888"}, {"id": "pub-gershlak-2026", "status": "journal", "short": "Engineered heart tube", "title": "Engineered Development: Directed Morphogenesis of an Embryonic Heart Tube", "year": 2026, "venue": "Advanced Materials 38(30)", "people": "Gershlak JR, Miki K, Goraya SA, Nezami FR, Ott HC", "peopleNote": "From Google Scholar.", "description": "Engineering approach to directing the morphogenesis of an embryonic heart tube.", "url": "https://pubmed.ncbi.nlm.nih.gov/42028886/", "linkType": "pubmed", "linkNote": "PubMed record PMID 42028886 (listed on Harvard Catalyst).", "pmid": "42028886"}]}, {"id": "bio-cell", "label": "Cell–scaffold interactions", "short": "Cell–scaffold", "description": "Imaging and machine learning of how cells interact with scaffolds.", "items": [{"id": "hsrd-dassanayake", "status": "hsrd", "short": "Cell–microgel imaging", "title": "3D imaging of cell organization on GelMA microgels", "year": 2027, "venue": "HMS Department of Surgery Research Day (HSRD) 2027 · abstract not yet public", "people": "Merlin Dassanayake (presenter); Nezami Lab", "peopleNote": "", "description": "Current Nezami Lab project. It will be presented at HSRD 2027. Methods and results will be added after the work is public.", "url": "", "linkType": "none"}, {"id": "pub-razaviamri-acta-2026", "status": "journal", "short": "Scaffold classification", "title": "Deep learning-enabled tissue engineering scaffold classification using cell morphology", "year": 2026, "venue": "Acta Biomaterialia 222:243–257", "people": "Razaviamri F, Jégard C, Rouhollahi A, Dassanayake M, Billaud M, Sheikhi A, Nezami FR", "peopleNote": "Full author list from Harvard Catalyst (PubMed).", "description": "Deep learning that classifies tissue-engineering scaffolds from cell morphology.", "url": "https://pubmed.ncbi.nlm.nih.gov/42556765/", "linkType": "pubmed", "linkNote": "PubMed record PMID 42556765 (listed on Harvard Catalyst).", "pmid": "42556765"}]}]}]}</script>
+<script>
+(function(){
+"use strict";
+const SVGNS="http://www.w3.org/2000/svg";
+const R={c:92, a0:98, a1:172, s0:176, s1:276, i0:280, i1:334};
+const PAD=0.0055; // radians gap between segments
+let DATA, nodes=[], byId={}, selected=null, statusOn={};
+const svg=document.getElementById("chart"), tip=document.getElementById("tip"), panel=document.getElementById("panel");
+
+/* ---------- data ---------- */
+async function load(){
+  if(location.protocol.startsWith("http")){
+    try{const r=await fetch("data/research-map.json",{cache:"no-cache"}); if(r.ok) return await r.json();}catch(e){}
+  }
+  return JSON.parse(document.getElementById("inline-data").textContent);
+}
+
+/* ---------- color helpers ---------- */
+function hex2rgb(h){h=h.replace("#","");return[0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+function mix(h,w,t){const a=hex2rgb(h),b=hex2rgb(w);return"rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")+")";}
+const tint=(h,t)=>mix(h,"#ffffff",t);
+
+/* ---------- geometry ---------- */
+function pt(r,a){return[r*Math.sin(a),-r*Math.cos(a)];}
+function arcPath(r0,r1,a0,a1){
+  const large=(a1-a0)>Math.PI?1:0;
+  const [x0,y0]=pt(r1,a0),[x1,y1]=pt(r1,a1),[x2,y2]=pt(r0,a1),[x3,y3]=pt(r0,a0);
+  return `M${x0},${y0}A${r1},${r1} 0 ${large} 1 ${x1},${y1}L${x2},${y2}A${r0},${r0} 0 ${large} 0 ${x3},${y3}Z`;
+}
+function el(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+
+function layout(){
+  nodes=[];byId={};
+  const areas=DATA.areas;
+  const w=areas.map(a=>Math.max(9,a.subtopics.reduce((s,t)=>s+t.items.length,0)));
+  const tot=w.reduce((a,b)=>a+b,0);
+  let ang=-Math.PI/2.6; // rotate so the first area starts upper-left
+  areas.forEach((a,ai)=>{
+    const span=w[ai]/tot*2*Math.PI;
+    const A={kind:"area",id:a.id,data:a,a0:ang,a1:ang+span,area:a,children:[]};
+    nodes.push(A);byId[a.id]=A;
+    const n=a.subtopics.reduce((s,t)=>s+t.items.length,0);
+    let sa=ang;
+    a.subtopics.forEach(t=>{
+      const ss=t.items.length/n*span;
+      const S={kind:"sub",id:t.id,data:t,a0:sa,a1:sa+ss,area:a,parent:A,children:[]};
+      nodes.push(S);byId[t.id]=S;A.children.push(S);
+      const step=ss/t.items.length;
+      t.items.forEach((it,k)=>{
+        const I={kind:"item",id:it.id,data:it,a0:sa+k*step,a1:sa+(k+1)*step,area:a,parent:S,sub:t};
+        nodes.push(I);byId[it.id]=I;S.children.push(I);
+      });
+      sa+=ss;
+    });
+    ang+=span;
+  });
+}
+
+/* ---------- status styling ---------- */
+const STATUS_ORDER=["grant","journal","conference","hsrd"];
+function itemFill(st,color,areaId){
+  switch(st){
+    case "grant": return `url(#dots-${areaId})`;
+    case "journal": return color;
+    case "conference": return tint(color,.5);
+    case "hsrd": return `url(#hatch-${areaId})`;
+    default: return "#eef0f3";
+  }
+}
+function itemStroke(){ return null; }
+function swatchHTML(st,color){
+  const c=color||"#4b5a70";
+  const style={
+    grant:`background:radial-gradient(${c} 1.6px,${tint(c,.82)} 1.7px) 0 0/5px 5px`,
+    journal:`background:${c}`,
+    conference:`background:${tint(c,.5)}`,
+    hsrd:`background:repeating-linear-gradient(135deg,${c} 0 2px,${tint(c,.86)} 2px 5px)`,
+  }[st];
+  return `<span class="sw" style="${style}" aria-hidden="true"></span>`;
+}
+
+/* ---------- render chart ---------- */
+function render(){
+  svg.innerHTML="";
+  const defs=el("defs",{},svg);
+  DATA.areas.forEach(a=>{
+    const p=el("pattern",{id:"hatch-"+a.id,patternUnits:"userSpaceOnUse",width:6,height:6,patternTransform:"rotate(45)"},defs);
+    el("rect",{width:6,height:6,fill:tint(a.color,.86)},p);
+    el("rect",{width:2.4,height:6,fill:a.color},p);
+    const q=el("pattern",{id:"dots-"+a.id,patternUnits:"userSpaceOnUse",width:6,height:6},defs);
+    el("rect",{width:6,height:6,fill:tint(a.color,.82)},q);
+    el("circle",{cx:3,cy:3,r:1.8,fill:a.color},q);
+  });
+  const gA=el("g",{},svg), gS=el("g",{},svg), gI=el("g",{},svg), gL=el("g",{},svg);
+
+  nodes.forEach(n=>{
+    const pad=n.kind==="area"?PAD*1.6:PAD;
+    const a0=n.a0+pad/2, a1=n.a1-pad/2;
+    let r0,r1,fill,stroke=null;
+    if(n.kind==="area"){r0=R.a0;r1=R.a1;fill=n.area.color;}
+    else if(n.kind==="sub"){r0=R.s0;r1=R.s1;fill=tint(n.area.color,.8);}
+    else{r0=R.i0;r1=R.i1;fill=itemFill(n.data.status,n.area.color,n.area.id);stroke=itemStroke(n.data.status,n.area.color);}
+    const g=el("g",{class:"seg","data-id":n.id,tabindex:"0",role:"button","aria-label":ariaFor(n)},n.kind==="area"?gA:n.kind==="sub"?gS:gI);
+    el("path",{class:"shape",d:arcPath(r0,r1,a0,a1),fill},g);
+    if(stroke){ el("path",{d:arcPath(r0+1.6,r1-1.6,a0+0.004,a1-0.004),fill:"none",stroke,"stroke-width":1.4,"stroke-dasharray":n.data.status==="unconfirmed"?"3 2":"none","pointer-events":"none"},g); }
+    n.g=g;
+    g.addEventListener("click",e=>{e.stopPropagation();select(n.id,true);});
+    g.addEventListener("keydown",e=>onKey(e,n));
+    g.addEventListener("pointerenter",e=>{if(e.pointerType==="mouse")showTip(n,e);});
+    g.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")moveTip(e);});
+    g.addEventListener("pointerleave",hideTip);
+    g.addEventListener("focus",()=>showTipAt(n));
+    g.addEventListener("blur",hideTip);
+  });
+
+  // area labels (curved, two lines)
+  nodes.filter(n=>n.kind==="area").forEach(n=>{
+    const mid=(n.a0+n.a1)/2, bottom=Math.cos(mid)<-0.05;
+    const words=n.data.short.split(" ");
+    let best=1,bd=1e9;for(let i=1;i<words.length;i++){const d=Math.abs(words.slice(0,i).join(" ").length-words.slice(i).join(" ").length);if(d<bd){bd=d;best=i;}}
+    const lines=words.length>1?[words.slice(0,best).join(" "),words.slice(best).join(" ")]:[n.data.short];
+    const radii=lines.length===2?(bottom?[R.a0+27,R.a0+45]:[R.a0+47,R.a0+29]):[R.a0+(bottom?34:40)];
+    lines.forEach((txt,i)=>{
+      const r=radii[i],id=`lp-${n.id}-${i}`;
+      const a0=n.a0+0.02,a1=n.a1-0.02;
+      let d;
+      if(!bottom){const[x0,y0]=pt(r,a0),[x1,y1]=pt(r,a1);d=`M${x0},${y0}A${r},${r} 0 0 1 ${x1},${y1}`;}
+      else{const[x0,y0]=pt(r,a1),[x1,y1]=pt(r,a0);d=`M${x0},${y0}A${r},${r} 0 0 0 ${x1},${y1}`;}
+      el("path",{id,d,fill:"none"},gL);
+      const t=el("text",{class:"lab-area","data-for":n.id},gL);
+      const tp=el("textPath",{href:"#"+id,startOffset:"50%","text-anchor":"middle"},t);
+      tp.textContent=txt;
+    });
+  });
+  // subtopic labels (radial)
+  nodes.filter(n=>n.kind==="sub").forEach(n=>{
+    const mid=(n.a0+n.a1)/2, deg=mid*180/Math.PI;
+    const left=Math.sin(mid)<0;
+    const rmid=(R.s0+R.s1)/2;
+    const [x,y]=pt(rmid,mid);
+    const rot=left?deg+90:deg-90;
+    const t=el("text",{class:"lab-sub","data-for":n.id,x:0,y:0,"text-anchor":"middle","dominant-baseline":"central",transform:`translate(${x},${y}) rotate(${rot})`},gL);
+    const span=(n.a1-n.a0)*rmid;
+    t.textContent=span<15?"":n.data.short;
+    fitSub(t);
+  });
+
+  // center
+  const c=el("g",{id:"center",tabindex:"0",role:"button","aria-label":"Lab vision. Activate to show the whole map."},svg);
+  el("circle",{r:R.c,fill:"#fff",stroke:"#d9dde4","stroke-width":1.2},c);
+  const t1=el("text",{class:"center-t1","text-anchor":"middle",y:-30},c); t1.textContent=DATA.meta.lab;
+  wrapText(c,"Computation, experiments & AI for cardiovascular care",-8,140,"center-t2",13.5);
+  const h=el("text",{class:"center-hint","text-anchor":"middle",y:52},c); h.textContent="Explore all ↺";
+  c.addEventListener("click",()=>select(null,true));
+  c.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select(null,true);} });
+  svg.addEventListener("click",e=>{if(e.target===svg)select(null,true);});
+}
+function fitSub(t){
+  const max=(R.s1-R.s0)-8;let fs=parseFloat(getComputedStyle(t).fontSize)||10.6;
+  let len=t.getComputedTextLength?t.getComputedTextLength():0;
+  for(let k=0;k<6&&len>max&&fs>8.6;k++){fs=Math.max(8.6,fs*max/len*0.97);t.style.fontSize=fs+"px";len=t.getComputedTextLength();}
+  if(len>max){let s=t.textContent;while(s.length>3&&t.getComputedTextLength()>max){s=s.slice(0,-1);t.textContent=s.trimEnd()+"…";}}
+}
+function wrapText(parent,str,y,maxW,cls,lh){
+  const words=str.split(" "),lines=[];let cur="";
+  words.forEach(w=>{const tryS=cur?cur+" "+w:w; if(tryS.length*6.1>maxW&&cur){lines.push(cur);cur=w;}else cur=tryS;});
+  if(cur)lines.push(cur);
+  lines.forEach((l,i)=>{const t=el("text",{class:cls,"text-anchor":"middle",y:y+i*lh},parent);t.textContent=l;});
+}
+function ariaFor(n){
+  if(n.kind==="area") return `Research area: ${n.data.label}. ${n.children.length} subtopics.`;
+  if(n.kind==="sub") return `Subtopic: ${n.data.label}, in ${n.area.label}. ${n.children.length} items.`;
+  const st=DATA.statuses[n.data.status];
+  return `${st?st.label:""}: ${n.data.title}${n.data.year?", "+n.data.year:""}.`;
+}
+
+/* ---------- tooltip ---------- */
+function tipHTML(n){
+  if(n.kind==="item"){const st=DATA.statuses[n.data.status];return `${esc(n.data.short)}<span class="k">${esc(st.tag||st.short)}${n.data.year?" · "+n.data.year:""}</span>`;}
+  return `${esc(n.data.label)}<span class="k">${n.kind==="area"?"Research area":"Subtopic"} · ${n.kind==="area"?countItems(n):n.children.length} items</span>`;
+}
+function showTip(n,e){tip.innerHTML=tipHTML(n);tip.classList.add("on");moveTip(e);}
+function moveTip(e){const box=tip.parentElement.getBoundingClientRect();let x=e.clientX-box.left+14,y=e.clientY-box.top+14;const w=tip.offsetWidth;if(x+w>box.width-8)x=e.clientX-box.left-w-14;tip.style.left=x+"px";tip.style.top=y+"px";}
+function showTipAt(n){
+  const box=tip.parentElement.getBoundingClientRect(),sb=svg.getBoundingClientRect();
+  const r=n.kind==="area"?R.a1:n.kind==="sub"?R.s1:R.i1;const[x,y]=pt(r+6,(n.a0+n.a1)/2);
+  const s=sb.width/684;tip.innerHTML=tipHTML(n);tip.classList.add("on");
+  let px=sb.left-box.left+(x+342)*s+8,py=sb.top-box.top+(y+342)*s+8;const w=tip.offsetWidth;if(px+w>box.width-8)px-=w+16;
+  tip.style.left=px+"px";tip.style.top=py+"px";
+}
+function hideTip(){tip.classList.remove("on");}
+
+/* ---------- keyboard ---------- */
+function onKey(e,n){
+  const k=e.key;
+  if(k==="Enter"||k===" "){e.preventDefault();select(n.id,true);return;}
+  if(k==="Escape"){e.preventDefault();select(null,true);document.getElementById("center").focus();return;}
+  let target=null;
+  const ring=nodes.filter(m=>m.kind===n.kind && !isFiltered(m));
+  const i=ring.indexOf(n);
+  if(k==="ArrowRight"||k==="ArrowLeft"){target=ring[(i+(k==="ArrowRight"?1:-1)+ring.length)%ring.length];}
+  else if(k==="ArrowUp"){target=(n.children||[]).find(c=>!isFiltered(c))||null;}
+  else if(k==="ArrowDown"){target=n.parent||null; if(!target){document.getElementById("center").focus();e.preventDefault();return;}}
+  if(target){e.preventDefault();target.g.focus();}
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!e.target.closest?.(".seg")){select(null,true);}});
+
+/* ---------- filters ---------- */
+function isFiltered(n){
+  if(n.kind!=="item") return n.children.every(isFiltered);
+  if(!statusOn[n.data.status]) return true;
+  return false;
+}
+function buildFilters(){
+  const f=document.getElementById("filters");
+  f.innerHTML='<span class="lbl">Show:</span>';
+  STATUS_ORDER.forEach(st=>{
+    if(!DATA.statuses[st]) return;
+    const n=nodes.filter(m=>m.kind==="item"&&m.data.status===st).length; if(!n) return;
+    statusOn[st]=true;
+    const b=document.createElement("button");b.type="button";b.className="chip";b.setAttribute("aria-pressed","true");
+    b.innerHTML=`${swatchHTML(st)}${esc(DATA.statuses[st].short)} <span class="note">${n}</span>`;
+    b.title="Show or hide: "+DATA.statuses[st].label;
+    b.addEventListener("click",()=>{statusOn[st]=!statusOn[st];b.setAttribute("aria-pressed",statusOn[st]);applyState();});
+    f.appendChild(b);
+  });
+}
+
+/* ---------- selection ---------- */
+function lineage(n){const s=new Set();let p=n;while(p){s.add(p.id);p=p.parent;}return s;}
+function descendants(n){const s=new Set([n.id]);(n.children||[]).forEach(c=>descendants(c).forEach(x=>s.add(x)));return s;}
+function select(id,updateHash){
+  selected=id&&byId[id]?byId[id]:null;
+  if(updateHash){
+    const h=selected?`#${selected.id}`:"#";
+    try{history.replaceState(null,"",h==="#"?location.pathname+location.search:h);}catch(e){}
+  }
+  applyState();
+  if(updateHash && window.matchMedia("(max-width: 980px)").matches && selected){
+    const r=panel.getBoundingClientRect(); if(r.top>window.innerHeight*0.85) panel.scrollIntoView({behavior:"smooth",block:"start"});
+  }
+}
+function applyState(){
+  let keep=null;
+  if(selected){keep=new Set([...lineage(selected),...descendants(selected)]);}
+  nodes.forEach(n=>{
+    n.g.classList.toggle("dim",!!keep&&!keep.has(n.id));
+    n.g.classList.toggle("filtered",isFiltered(n));
+    n.g.classList.toggle("is-selected",!!selected&&selected.id===n.id);
+    n.g.setAttribute("aria-pressed",!!selected&&selected.id===n.id);
+    if(isFiltered(n)) n.g.setAttribute("tabindex","-1"); else n.g.setAttribute("tabindex","0");
+  });
+  svg.querySelectorAll("text[data-for]").forEach(t=>{const id=t.getAttribute("data-for");t.style.opacity=(keep&&!keep.has(id))||isFiltered(byId[id])?.25:1;});
+  renderPanel();
+}
+
+/* ---------- panel ---------- */
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function countItems(n){return nodes.filter(m=>m.kind==="item"&&m.area.id===n.id&&!isFiltered(m)).length;}
+function badge(st,color){const s=DATA.statuses[st];return `<span class="badge">${swatchHTML(st,color)}${esc(s?s.label:st)}</span>`;}
+function crumbs(n){
+  const parts=[`<button class="crumb" data-go="">All areas</button>`];
+  if(n.kind!=="area"){const a=byId[n.area.id];parts.push("›",`<button class="crumb" data-go="${a.id}">${esc(a.data.short)}</button>`);}
+  if(n.kind==="item"){parts.push("›",`<button class="crumb" data-go="${n.parent.id}">${esc(n.parent.data.short)}</button>`);}
+  return `<nav class="crumbs" aria-label="Breadcrumb">${parts.join("")}</nav>`;
+}
+function itemRow(m){
+  const d=m.data;
+  return `<button class="row" data-go="${m.id}"><span class="dot" style="background:${m.area.color}"></span><span class="t"><b>${esc(d.short)}</b><span>${esc(DATA.statuses[d.status].tag||DATA.statuses[d.status].short)}${d.year?" · "+d.year:""}</span></span></button>`;
+}
+function renderPanel(){
+  let h="";
+  const n=selected;
+  if(!n){
+    const items=nodes.filter(m=>m.kind==="item"&&!isFiltered(m));
+    const c=st=>items.filter(m=>m.data.status===st).length;
+    h+=`<h2>The lab at a glance</h2><p>${esc(DATA.meta.vision)}</p>
+    <div class="stats"><div class="stat"><b>${DATA.areas.length}</b><span>research areas</span></div>
+    <div class="stat"><b>${c("hsrd")}</b><span>HSRD 2027 projects</span></div>
+    <div class="stat"><b>${c("grant")}</b><span>funded projects</span></div>
+    <div class="stat"><b>${c("journal")}</b><span>journal papers</span></div></div>
+    <h3>Research areas</h3><div class="rows">`+
+    nodes.filter(m=>m.kind==="area").map(a=>`<button class="row" data-go="${a.id}"><span class="dot" style="background:${a.area.color}"></span><span class="t"><b>${esc(a.data.label)}</b><span>${a.children.map(s=>esc(s.data.short)).join(" · ")}</span></span></button>`).join("")+
+    `</div><h3>Current & recent funding</h3><div class="rows">${items.filter(m=>m.data.status==="grant").map(itemRow).join("")}</div><p class="note" style="margin-top:14px">The publication list is a curated selection from Google Scholar and the lab Publications page, not a complete bibliography.</p>`;
+  } else if(n.kind==="area"){
+    h+=crumbs(n)+`<div class="bar" style="background:${n.area.color}"></div><h2>${esc(n.data.label)}</h2><p>${esc(n.data.description)}</p><p class="note">Basis: ${esc(n.data.siteBasis)}</p>`;
+    n.children.forEach(s=>{
+      const its=s.children.filter(m=>!isFiltered(m));
+      h+=`<h3><button class="crumb" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)" data-go="${s.id}">${esc(s.data.label)}</button></h3>`;
+      h+=its.length?`<div class="rows">${its.map(itemRow).join("")}</div>`:`<p class="note">No items match the current filters.</p>`;
+    });
+  } else if(n.kind==="sub"){
+    const its=n.children.filter(m=>!isFiltered(m));
+    h+=crumbs(n)+`<div class="bar" style="background:${tint(n.area.color,.55)}"></div><h2>${esc(n.data.label)}</h2><p>${esc(n.data.description)}</p><h3>Projects & publications</h3>`;
+    h+=its.length?`<div class="rows">${its.map(itemRow).join("")}</div>`:`<p class="note">No items match the current filters.</p>`;
+  } else {
+    const d=n.data, st=d.status;
+    const linkLabel={pubmed:"Open in PubMed ↗",profile:"View on Harvard Catalyst ↗",doi:"Open paper (DOI) ↗",scholar:"Find on Google Scholar ↗",preprint:"Open preprint ↗",publisher:"Open publisher page ↗"}[d.linkType];
+    h+=crumbs(n)+`<div style="margin-bottom:10px">${badge(st,n.area.color)}</div><h2>${esc(d.title)}</h2>
+    <dl class="meta"><dt>Year</dt><dd>${esc(d.year||"—")}</dd><dt>${st==="grant"?"Funding":"Venue"}</dt><dd>${esc(d.venue||"—")}${d.pmid?`<br><span class="note">PMID ${esc(d.pmid)}</span>`:""}</dd>
+    <dt>People</dt><dd>${esc(d.people||"—")}${d.peopleNote?`<br><span class="note">${esc(d.peopleNote)}</span>`:""}</dd>
+    <dt>Area</dt><dd>${esc(n.area.label)} › ${esc(n.sub.label)}</dd></dl>
+    <p>${esc(d.description)}</p>`;
+    if(st==="hsrd") h+=`<p class="note">Status: current project, abstract submitted to HSRD 2027. The work is not yet public, so only general information is shown.</p>`;
+    if(st==="grant") h+=`<p class="note">Status: funded project. The listing comes from Harvard Catalyst or the funder's page; outputs are listed separately.</p>`;
+    h+=`<div class="actions">`;
+    if(d.url&&linkLabel) h+=`<a class="btn primary" href="${esc(d.url)}" target="_blank" rel="noopener">${linkLabel}</a>`;
+    else h+=`<span class="note">No public link yet.</span>`;
+    if(d.linkNote) h+=`<span class="note" style="align-self:center">${esc(d.linkNote)}</span>`;
+    h+=`<button class="btn" id="copyLink" type="button">Copy link to this item</button></div>`;
+    const sibs=n.parent.children.filter(m=>m!==n&&!isFiltered(m));
+    if(sibs.length) h+=`<h3>Also in ${esc(n.sub.label)}</h3><div class="rows">${sibs.map(itemRow).join("")}</div>`;
+  }
+  panel.innerHTML=h;
+  panel.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{const id=b.getAttribute("data-go");select(id||null,true);panel.focus({preventScroll:true});}));
+  const cp=document.getElementById("copyLink");
+  if(cp) cp.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(location.href);cp.textContent="Link copied ✓";}catch(e){cp.textContent="Copy failed: use the address bar";}});
+}
+
+/* ---------- static sections ---------- */
+function renderStatic(){
+  document.getElementById("vision").textContent=DATA.meta.vision;
+  document.getElementById("legendStatus").innerHTML=STATUS_ORDER.filter(s=>DATA.statuses[s]).map(s=>`<div>${swatchHTML(s)}<span>${esc(DATA.statuses[s].label)}</span></div>`).join("");
+  document.getElementById("sourceList").innerHTML=DATA.meta.sources.map(s=>`<li>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a>`:esc(s.label)}</li>`).join("");
+  const total=nodes.filter(m=>m.kind==="item").length;
+  document.getElementById("reviewSummary").textContent=`${total} items. Publication details were checked against PubMed, publisher, preprint-server or Google Scholar records. Last checked ${DATA.meta.lastReviewed}.`;
+  document.getElementById("footer").textContent=DATA.meta.disclaimer;
+  document.getElementById("resetBtn").addEventListener("click",()=>select(null,true));
+}
+
+function renderPI(){
+  const P=DATA.meta.pi; if(!P) return;
+  const el2=document.getElementById("pi");
+  el2.innerHTML=`<h2 id="piTitle">Principal investigator: ${esc(P.name)}</h2><p class="aka">Also published as ${esc(P.aka)}</p>
+  <div><h3>Roles</h3><ul>${P.roles.map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+  <h3>Training</h3><ul>${P.education.map(e=>`<li><b>${esc(e.degree)}</b>, ${esc(e.place)} (${esc(e.year)})${e.note?`<br><span class="note">${esc(e.note)}</span>`:""}</li>`).join("")}</ul></div>
+  <div><h3>Awards &amp; honors</h3><ul>${P.awards.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>
+  <h3>Profile keywords</h3><div class="tags">${P.keywords.map(k=>`<span class="tag">${esc(k)}</span>`).join("")}</div></div>
+  <div><h3>Profiles &amp; links</h3><div class="links">${P.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}</div>
+  <p class="note" style="margin-top:10px">${esc(P.source)}</p></div>`;
+}
+function fromHash(){const m=location.hash.match(/^#(?:\/(?:area|sub|item)\/)?([\w-]+)$/);select(m&&byId[m[1]]?m[1]:null,false);}
+
+load().then(d=>{DATA=d;layout();render();buildFilters();renderStatic();renderPI();fromHash();window.addEventListener("hashchange",fromHash);});
+})();
+</script>
+</body>
+</html>
