@@ -1,5 +1,29 @@
 {
   "meta": {
+    "about": {
+      "title": "About our research",
+      "text": "Dr. Nezami’s primary expertise is in using computational methods as well as both in vitro and ex/in vivo experiments to tackle challenges in cardiology and cardiac surgery. Integrating multiple disciplines of engineering, computer science, and biomaterials, his lab aims to achieve mechanistic understanding of several valvular and vascular diseases. Using elements of fluid dynamics, continuum mechanics, mass transport, and image processing, his team also assesses the performance and optimizes the design of assorted medical devices such as stents, prosthetic valves, endovascular implants, mechanical assist devices, and life support systems. Nezami Lab’s provably reliable tools as well provide predictive means and diagnostic tools for clinicians and regulatory officials to update clinical therapy and surgical guidelines.",
+      "topics": [
+        {
+          "label": "Atherosclerosis",
+          "text": "Lesion characterization, risk stratification, and endovascular implants development",
+          "url": "https://nezamilab.bwh.harvard.edu/atherosclerosis/",
+          "area": "vascular"
+        },
+        {
+          "label": "Cardiac Surgery",
+          "text": "Vascular and valvular diseases, cardiomyopathy, statistical shape analysis, robotics",
+          "url": "https://nezamilab.bwh.harvard.edu/cardiac-surgery/",
+          "area": "imaging"
+        },
+        {
+          "label": "Emergency Medicine",
+          "text": "Mechanical support systems, artificial heart/lung, and transplantation",
+          "url": "https://nezamilab.bwh.harvard.edu/emergency-medicine/",
+          "area": "model"
+        }
+      ]
+    },
     "title": "Nezami Lab Research Map",
     "lab": "Nezami Lab",
     "affiliation": "Division of Cardiac Surgery, Brigham and Women's Hospital / Harvard Medical School",
